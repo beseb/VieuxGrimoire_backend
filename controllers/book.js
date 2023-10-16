@@ -1,5 +1,6 @@
 // in controllers/book.js
 const Book = require('../models/book');
+const fs = require('fs');
 
 // Enregistrer un livre
 exports.createBook = (req, res, next) => {
@@ -95,9 +96,11 @@ exports.modifyBook = (req, res, next) => {
           { _id: req.params.id },
           { ...bookObject, _id: req.params.id }
         )
-          .then(() =>
-           {return res.status(200).json({ message: 'Le livre a été modifié !' })}
-          )
+          .then(() => {
+            return res
+              .status(200)
+              .json({ message: 'Le livre a été modifié !' });
+          })
           .catch(error => res.status(401).json({ error: error }));
       }
     })
@@ -108,19 +111,27 @@ exports.modifyBook = (req, res, next) => {
 
 // Supprimer un livre
 exports.deleteBook = (req, res, next) => {
-  Book.deleteOne({ _id: req.params.id })
+  Book.findOne({ _id: req.params.id })
     /// Vérifiez comment supprimer l'imageUrl du livre également !!
-    .then(() => {
-      res.status(200).json({
-        message: 'Le livre a été supprimé !',
-      });
+    .then(book => {
+      if (book.userId != req.auth.userId) {
+        res.status(401).json({ message: 'Non-autorisé !' });
+      } else {
+        const filename = book.imageUrl.split('/images/')[1];
+        fs.unlink(`images/${filename}`, () => {
+          Book.deleteOne({ _id: req.params.id })
+            .then(() => res.status(200).json({ message: 'objet supprimé !' }))
+            .catch(error => res.status(401).json({ error }));
+        });
+      }
     })
     .catch(error => {
-      res.status(400).json({
-        error: error,
+      res.status(500).json({
+        error
       });
     });
 };
+
 // Récupère tous les livres
 exports.getAllBooks = (req, res, next) => {
   Book.find()

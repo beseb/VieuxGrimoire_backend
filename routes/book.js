@@ -4,8 +4,6 @@ const auth = require('../middleware/auth');
 const multer = require('../middleware/multer-config');
 const router = express.Router();
 
-// Vérifier les routes !! //
-// Vérifier bestRating et la route...
 router.get('/', bookCtrl.getAllBooks);
 router.get('/bestrating', bookCtrl.getBestRating);
 router.post('/', auth, multer, bookCtrl.createBook);

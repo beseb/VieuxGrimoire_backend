@@ -5,28 +5,42 @@ const sharp = require('sharp');
 
 // Enregistrer un livre
 exports.createBook = (req, res, next) => {
-  const bookObject = JSON.parse(req.body.book); // verifier book
+  const bookObject = JSON.parse(req.body.book);
   delete bookObject._id;
   delete bookObject._userId;
   console.log(bookObject);
-  const book = new Book({
-    ...bookObject,
-    userID: req.auth.userId,
-    imageUrl: `${req.protocol}://${req.get('host')}/images/${
-      req.file.filename
-    }`,
-  });
-  book
-    .save()
+
+  // Utilisation de sharp pour compresser l'image
+  const filename = req.file.filename;
+  const newFilename = `compressed_${filename}`;
+  sharp(req.file.path)
+    .resize(200) // Redimensionner l'image
+    .jpeg({ quality: 80 }) // Compresser l'image en jpeg avec une qualité de 80
+    .toFile(`images/${newFilename}`)
     .then(() => {
-      return res.status(201).json({
-        message: 'Le livre a été enregistré !',
+      fs.unlinkSync(req.file.path); // Supprimer l'ancien fichier
+      const book = new Book({
+        // Construire le "book" normalement !
+        ...bookObject,
+        userID: req.auth.userId,
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${newFilename}`,
       });
+      book
+        .save()
+        .then(() => {
+          return res.status(201).json({
+            message: 'Le livre a été enregistré !',
+          });
+        })
+        .catch(error => {
+          return res.status(400).json({
+            error: error,
+          });
+        });
     })
     .catch(error => {
-      return res.status(400).json({
-        error: error,
-      });
+      console.log(error);
+      res.status(500).json({ error });
     });
 };
 
@@ -95,7 +109,7 @@ exports.getBestRating = (req, res, next) => {
 
 // Modifier un livre
 exports.modifyBook = (req, res, next) => {
-  // Il y a un file (image ici) ou non ?
+  // On vérifie qu'il y a une image envoyé dans le body de la requête
   const bookObject = req.file
     ? {
         ...JSON.parse(req.body.book),
@@ -110,7 +124,6 @@ exports.modifyBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
     .then(book => {
       if (book.userId != req.auth.userId) {
-        // Erreur 403
         return res.status(403).json({ message: '403: unauthorized request !' });
       } else {
         Book.updateOne(
@@ -133,7 +146,6 @@ exports.modifyBook = (req, res, next) => {
 // Supprimer un livre
 exports.deleteBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
-    /// Vérifiez comment supprimer l'imageUrl du livre également !!
     .then(book => {
       if (book.userId != req.auth.userId) {
         res.status(403).json({ message: '403: unauthorized request !' });

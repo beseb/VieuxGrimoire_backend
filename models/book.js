@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 // Voir les spécifications techniques pour plus d'infos sur le schema attendu
-// Champs required ou pas ? risque d'erreur si ils ne sont pas dans le body de la requete ?
 const bookSchema = mongoose.Schema({
     userId: { type: String, required: true },
     title: { type: String, required: true},

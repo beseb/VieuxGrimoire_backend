@@ -1,13 +1,14 @@
 // in controllers/book.js
 const Book = require('../models/book');
 const fs = require('fs');
+const sharp = require('sharp');
 
 // Enregistrer un livre
 exports.createBook = (req, res, next) => {
   const bookObject = JSON.parse(req.body.book); // verifier book
   delete bookObject._id;
   delete bookObject._userId;
-
+  console.log(bookObject);
   const book = new Book({
     ...bookObject,
     userID: req.auth.userId,
@@ -29,20 +30,44 @@ exports.createBook = (req, res, next) => {
     });
 };
 
-//   const book = new Book({
-//     title: req.body.book, // Ici, vérifiez si req.body.book est ok! L'original est req.body.title !!
-//     author: req.body.author,
-//     imageUrl: req.body.imageUrl,
-//     year: req.body.year,
-//     genre: req.body.genre,
-//     userId: req.body.userId,
-//     ratings: [{}],
-//     averageRating: 0,
-//   });
-
-// Noter un livre
+// Note un livre
 exports.rateOneBook = (req, res, next) => {
-  // Trouver un livre et modify son rating ?
+  Book.findOne({
+    _id: req.params.id,
+  })
+    .then(book => {
+      if (!book) {
+        return res.status(404).json({ message: 'Livre non trouvé !' });
+      }
+
+      // Vérifier si l'utilisateur a déjà noté ce livre
+      const existingRating = book.ratings.find(
+        rating => rating.userId === req.auth.userId
+      );
+
+      if (existingRating) {
+        return res.status(403).json({
+          message:
+            'Vous avez déjà noté ce livre ! Impossible de modifier la note.',
+        });
+      }
+      console.log(req.body.rating);
+      // Ajouter la nouvelle note au livre
+      book.ratings.push({
+        userId: req.auth.userId,
+        grade: req.body.rating,
+      });
+
+      // Mettre à jour la note moyenne
+      book.averageRating =
+        book.ratings.reduce((sum, rating) => sum + rating.grade, 0) /
+        book.ratings.length;
+
+      // Sauvegarder les modifications
+      return book.save();
+    })
+    .then(book => res.status(201).json({ book }))
+    .catch(error => res.status(400).json({ error }));
 };
 
 // Trouver un livre
@@ -60,17 +85,12 @@ exports.getOneBook = (req, res, next) => {
     });
 };
 
-// Récuperer un tableau des 3 livres les mieux notées
-exports.getBestRatedBooks = (req, res, next) => {
-  /// Idem à GetALLBooks avec une filtrage par le rating?
-  //     Définit la note pour le user ID fourni.
-  // La note doit être comprise entre 0 et 5.
-  // L'ID de l'utilisateur et la note doivent être ajoutés au
-  // tableau "rating" afin de ne pas laisser un utilisateur
-  // noter deux fois le même livre.
-  // Il n’est pas possible de modifier une note.
-  // La note moyenne "averageRating" doit être tenue à
-  // jour, et le livre renvoyé en réponse de la requête.
+exports.getBestRating = (req, res, next) => {
+  Book.find()
+    .sort({ averageRating: -1 }) // Tri en ordre décroissant par averageRating
+    .limit(3) // Limiter à 3 livres
+    .then(books => res.status(200).json(books))
+    .catch(error => res.status(400).json({ error }));
 };
 
 // Modifier un livre
@@ -90,7 +110,8 @@ exports.modifyBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
     .then(book => {
       if (book.userId != req.auth.userId) {
-        return res.status(401).json({ message: 'Non-autorisé !' });
+        // Erreur 403
+        return res.status(403).json({ message: '403: unauthorized request !' });
       } else {
         Book.updateOne(
           { _id: req.params.id },
@@ -115,7 +136,7 @@ exports.deleteBook = (req, res, next) => {
     /// Vérifiez comment supprimer l'imageUrl du livre également !!
     .then(book => {
       if (book.userId != req.auth.userId) {
-        res.status(401).json({ message: 'Non-autorisé !' });
+        res.status(403).json({ message: '403: unauthorized request !' });
       } else {
         const filename = book.imageUrl.split('/images/')[1];
         fs.unlink(`images/${filename}`, () => {
@@ -127,7 +148,7 @@ exports.deleteBook = (req, res, next) => {
     })
     .catch(error => {
       res.status(500).json({
-        error
+        error,
       });
     });
 };

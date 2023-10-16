@@ -7,7 +7,7 @@ const router = express.Router();
 // Vérifier les routes !! //
 // Vérifier bestRating et la route...
 router.get('/', bookCtrl.getAllBooks);
-router.get('/bestrating', bookCtrl.getBestRatedBooks);
+router.get('/bestrating', bookCtrl.getBestRating);
 router.post('/', auth, multer, bookCtrl.createBook);
 router.get('/:id', bookCtrl.getOneBook);
 router.put('/:id', auth, multer, bookCtrl.modifyBook);

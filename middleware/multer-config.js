@@ -5,8 +5,8 @@ const MIME_TYPES = {
   'image/jpeg': 'jpg',
   'image/png': 'png'
 };
-
-const storage = multer.diskStorage({
+// Modifed diskStorage en memoryStorage
+const storage = multer.memoryStorage({
   destination: (req, file, callback) => {
     callback(null, 'images');
   },
@@ -16,5 +16,7 @@ const storage = multer.diskStorage({
     callback(null, name + Date.now() + '.' + extension);
   }
 });
+// this one ?
+// const upload = multer({storage: storage});
 
 module.exports = multer({storage: storage}).single('image');

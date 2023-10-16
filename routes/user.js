@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const userCtrl = require('../controllers/user');
 
-const userCtrl = require('../controllers/book');
-// Vérifier les routes pour l'autorisation !! //
-router.post('/signup', userCtrl.signupUser);
-router.post('/login', userCtrl.loginUser);
+
+// Vérifier les routes pour l'autorisation !!  Pas besoin de auth ! 
+router.post('/signup', userCtrl.signup);
+router.post('/login',  userCtrl.login);
 
 
 module.exports = router;

@@ -5,30 +5,41 @@ const Book = require('../models/book');
 
 // Enregistrer un livre
 exports.createBook = (req, res, next) => {
-  const book = new Book({
-    title: req.body.book, // Ici, vérifiez si req.body.book est ok! L'original est req.body.title !!
-    author: req.body.author,
-    imageUrl: req.body.imageUrl,
-    year: req.body.year,
-    genre: req.body.genre,
-    userId: req.body.userId,
-    ratings: [{}],
-    averageRating: 0,
-  });
-  book.save().then(
-    () => {
-      res.status(201).json({
-        message: 'Le livre a été enregistré !'
-      });
+    const bookObject = JSON.parse(req.body.book); // verifier book
+    delete bookObject._id;
+    delete bookObject._userId;
+
+    const book = new Book({
+        ...bookObject,
+        userID: req.auth.userId,
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+    });
+    book.save().then(
+        () => {
+          res.status(201).json({
+            message: 'Le livre a été enregistré !'
+          });
+        }
+      ).catch(
+        (error) => {
+          res.status(400).json({
+            error: error
+          });
+        }
+      );
     }
-  ).catch(
-    (error) => {
-      res.status(400).json({
-        error: error
-      });
-    }
-  );
-};
+
+//   const book = new Book({
+//     title: req.body.book, // Ici, vérifiez si req.body.book est ok! L'original est req.body.title !!
+//     author: req.body.author,
+//     imageUrl: req.body.imageUrl,
+//     year: req.body.year,
+//     genre: req.body.genre,
+//     userId: req.body.userId,
+//     ratings: [{}],
+//     averageRating: 0,
+//   });
+
 // Noter un livre
 exports.rateOneBook = (req, res, next )=>{
     // Trouver un livre et modify son rating ?

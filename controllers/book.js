@@ -1,7 +1,9 @@
 // in controllers/book.js
+require('mongoose');
 const Book = require('../models/book');
 const fs = require('fs');
 const sharp = require('sharp');
+const book = require('../models/book');
 
 // Enregistrer un livre
 exports.createBook = (req, res, next) => {
@@ -44,44 +46,43 @@ exports.createBook = (req, res, next) => {
     });
 };
 
-// Note un livre
+// Noter un livre
 exports.rateOneBook = (req, res, next) => {
-  Book.findOne({
-    _id: req.params.id,
-  })
+  const { userId } = req.auth;
+  const { id } = req.params;
+  const { rating } = req.body;
+  console.log(req.body);
+  // On recherche le livre par son id
+  Book.findById(id)
     .then(book => {
-      if (!book) {
-        return res.status(404).json({ message: 'Livre non trouvé !' });
-      }
-
-      // Vérifier si l'utilisateur a déjà noté ce livre
       const existingRating = book.ratings.find(
-        rating => rating.userId === req.auth.userId
+        rating => rating.userId === userId,
       );
-
+      console.log({ book });
+      // Si l'utilisateur a déjà noté le livre, on l'informe et on l'empêche de noter le livre // Est-ce vraiment utile de l'avertir ?
       if (existingRating) {
         return res.status(403).json({
           message:
             'Vous avez déjà noté ce livre ! Impossible de modifier la note.',
         });
       }
-      console.log(req.body.rating);
       // Ajouter la nouvelle note au livre
-      book.ratings.push({
-        userId: req.auth.userId,
-        grade: req.body.rating,
-      });
-
+      book.ratings.push({ id, userId, grade: rating });
       // Mettre à jour la note moyenne
-      book.averageRating =
-        book.ratings.reduce((sum, rating) => sum + rating.grade, 0) /
-        book.ratings.length;
-
-      // Sauvegarder les modifications
-      return book.save();
+      const averageRating = Math.round(
+        book.ratings.reduce((sum, rating) => {
+          return sum + rating.grade;
+        }, 0) /
+        book.ratings.length,
+      );
+      // Utiliser findByIdAndUpdate pour mettre à jour le livre
+      return Book.findByIdAndUpdate(
+        id,
+        { ratings: book.ratings, averageRating },
+        { new: true }, // Ici, on recrée le book avec toutes ses infos pour l'envoyer en réponse ( et afficher l'image, l'auteur etc...)
+      );
     })
-    .then(book => res.status(201).json({ book }))
-    .catch(error => res.status(400).json({ error }));
+    .catch(error => res.status(400).json({ error, message: 'Le livre n\'a pas été trouvé !' }));
 };
 
 // Trouver un livre
@@ -99,6 +100,7 @@ exports.getOneBook = (req, res, next) => {
     });
 };
 
+// Retourne les 3 livres les mieux notés
 exports.getBestRating = (req, res, next) => {
   Book.find()
     .sort({ averageRating: -1 }) // Tri en ordre décroissant par averageRating
@@ -112,11 +114,11 @@ exports.modifyBook = (req, res, next) => {
   // On vérifie qu'il y a une image envoyé dans le body de la requête
   const bookObject = req.file
     ? {
-        ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${
-          req.file.filename
-        }`,
-      }
+      ...JSON.parse(req.body.book),
+      imageUrl: `${req.protocol}://${req.get('host')}/images/${
+        req.file.filename
+      }`,
+    }
     : { ...req.body };
   // Supprimer userId pour éviter la falsification par un user malveillant
   delete bookObject._userId;
@@ -128,7 +130,7 @@ exports.modifyBook = (req, res, next) => {
       } else {
         Book.updateOne(
           { _id: req.params.id },
-          { ...bookObject, _id: req.params.id }
+          { ...bookObject, _id: req.params.id },
         )
           .then(() => {
             return res

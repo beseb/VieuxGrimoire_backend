@@ -2,7 +2,7 @@
 // On utilise dotenv pour masquer dans des variables d'environnement les infos sensibles !
 require('dotenv').config();
 const bcrypt = require('bcrypt');
-const saltRounds = process.env.BCRYPT_SALT;
+const saltRounds = parseInt(process.env.BCRYPT_SALT);
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 

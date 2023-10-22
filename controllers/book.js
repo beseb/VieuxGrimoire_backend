@@ -65,15 +65,13 @@ exports.rateOneBook = (req, res, next) => {
             'Vous avez déjà noté ce livre ! Impossible de modifier la note.',
         });
       }
-
       book.ratings.push({ id, userId, grade: rating });
+      const totalRating = book.ratings.reduce((sum, rating) => {
+        return sum + rating.grade;
+      }, 0);
+      const averageRating = Math.round(totalRating / book.ratings.length);
+      book.averageRating = averageRating;
       book.save();
-      const averageRating = Math.round(
-        book.ratings.reduce((sum, rating) => {
-          return sum + rating.grade;
-        }, 0) / book.ratings.length
-      );
-
       // Renvoyer le livre au FrontEnd
       return res.status(200).json(book);
     })

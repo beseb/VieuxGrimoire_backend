@@ -51,38 +51,35 @@ exports.rateOneBook = (req, res, next) => {
   const { userId } = req.auth;
   const { id } = req.params;
   const { rating } = req.body;
-  console.log(req.body);
-  // On recherche le livre par son id
+  console.log(userId);
+  console.log(id);
+
   Book.findById(id)
     .then(book => {
       const existingRating = book.ratings.find(
-        rating => rating.userId === userId,
+        element => element.userId == userId
       );
-      console.log({ book });
-      // Si l'utilisateur a déjà noté le livre, on l'informe et on l'empêche de noter le livre // Est-ce vraiment utile de l'avertir ?
       if (existingRating) {
         return res.status(403).json({
           message:
             'Vous avez déjà noté ce livre ! Impossible de modifier la note.',
         });
       }
-      // Ajouter la nouvelle note au livre
+
       book.ratings.push({ id, userId, grade: rating });
-      // Mettre à jour la note moyenne
+      book.save();
       const averageRating = Math.round(
         book.ratings.reduce((sum, rating) => {
           return sum + rating.grade;
-        }, 0) /
-        book.ratings.length,
+        }, 0) / book.ratings.length
       );
-      // Utiliser findByIdAndUpdate pour mettre à jour le livre
-      return Book.findByIdAndUpdate(
-        id,
-        { ratings: book.ratings, averageRating },
-        { new: true }, // Ici, on recrée le book avec toutes ses infos pour l'envoyer en réponse ( et afficher l'image, l'auteur etc...)
-      );
+
+      // Renvoyer le livre au FrontEnd
+      return res.status(200).json(book);
     })
-    .catch(error => res.status(400).json({ error, message: 'Le livre n\'a pas été trouvé !' }));
+    .catch(error =>
+      res.status(404).json({ error, message: "Le livre n'a pas été trouvé !" })
+    );
 };
 
 // Trouver un livre
@@ -114,11 +111,11 @@ exports.modifyBook = (req, res, next) => {
   // On vérifie qu'il y a une image envoyé dans le body de la requête
   const bookObject = req.file
     ? {
-      ...JSON.parse(req.body.book),
-      imageUrl: `${req.protocol}://${req.get('host')}/images/${
-        req.file.filename
-      }`,
-    }
+        ...JSON.parse(req.body.book),
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${
+          req.file.filename
+        }`,
+      }
     : { ...req.body };
   // Supprimer userId pour éviter la falsification par un user malveillant
   delete bookObject._userId;
@@ -130,7 +127,7 @@ exports.modifyBook = (req, res, next) => {
       } else {
         Book.updateOne(
           { _id: req.params.id },
-          { ...bookObject, _id: req.params.id },
+          { ...bookObject, _id: req.params.id }
         )
           .then(() => {
             return res
